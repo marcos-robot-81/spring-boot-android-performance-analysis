@@ -4,12 +4,27 @@ meta {
   seq: 1
 }
 
-get {
-  url: localhost:8080/get
-  body: none
+post {
+  url: http://localhost:8002/sql
+  body: json
   auth: inherit
+}
+
+body:json {
+  {
+      "URL": "http://localhost:8000/api/busca/marca/nome?nome=bradesco",
+      "duracao":"0" ,
+      "temperatura":"de",
+      "tdelta":"",
+      "ram":"de",
+      "ramdelta":"",
+      "data": "2026-02-21T23:59:00.543511188"
+  
+    
+  }
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }

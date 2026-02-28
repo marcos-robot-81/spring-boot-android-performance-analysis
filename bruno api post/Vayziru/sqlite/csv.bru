@@ -5,15 +5,12 @@ meta {
 }
 
 get {
-  url: http://localhost:8002/sql/csv?data=2023-10-27
+  url: http://localhost:8002/sql/csv
   body: none
   auth: inherit
 }
 
-params:query {
-  data: 2023-10-27
-}
-
 settings {
   encodeUrl: true
+  timeout: 0
 }

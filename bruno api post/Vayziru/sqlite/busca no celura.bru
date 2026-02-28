@@ -1,0 +1,16 @@
+meta {
+  name: busca no celura
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://192.168.0.104:8002/sql/csv
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -8,9 +8,10 @@ from datetime import datetime
 
 # --- CONFIGURAÇÕES DO ESTUDO ---
 #URL_ALVO = "http://192.168.1.104:8000"  # Substitua pelo IP/Porta do seu celular
-URL_ALVO = "http://localhost:8000/api/busca/marca/nome?nome=dell" # para test no vscode
+#URL_ALVO = "http://localhost:8000/api/busca/marca/nome?nome=dell" # para test no vscode
+URL_ALVO = "http://localhost:8000"
 DURACAO_TESTE_SEGUNDOS = (3600*9)      # Duração do teste em segundos (1 hora = 3600s)
-CONCORRENCIA_MAXIMA = 2000         # Quantas requisições simultâneas (threads leves)
+CONCORRENCIA_MAXIMA = 100         # Quantas requisições simultâneas (threads leves)
 
 async def fazer_requisicao(id_req: int, session: aiohttp.ClientSession, url: str) -> Dict[str, Any]:
     """
