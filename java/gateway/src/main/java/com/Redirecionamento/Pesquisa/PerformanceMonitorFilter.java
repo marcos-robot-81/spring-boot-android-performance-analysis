@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import com.Redirecionamento.Pesquisa.tapyofdeta.Dados;
 
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.lang.management.ManagementFactory;
 import com.sun.management.OperatingSystemMXBean;
@@ -65,54 +66,55 @@ public class PerformanceMonitorFilter implements WebFilter, DisposableBean {
         long memBefore = memInfoBefore[0];
 
         return chain.filter(exchange)
-                .then(Mono.defer(() -> recordMetrics(exchange, startNano, startCpuTime, memBefore)))
-                .onErrorResume(e -> recordMetrics(exchange, startNano, startCpuTime, memBefore)
-                        .then(Mono.error(e)));
+                .doFinally(signal -> recordMetrics(exchange, startNano, startCpuTime, memBefore).subscribe());
     }
 
     private Mono<Void> recordMetrics(ServerWebExchange exchange, long startNano, long startCpuTime, long memBefore) {
-        // --- DEPOIS DA REQUISIÇÃO ---
-        long endNano = System.nanoTime();
-        long endCpuTime = (osBean != null) ? osBean.getProcessCpuTime() : 0;
-        long[] memInfoAfter = getSystemMemory();
-        long memAfter = memInfoAfter[0];
-        long memTotal = memInfoAfter[1];
+        return Mono.fromCallable(() -> {
+            // --- DEPOIS DA REQUISIÇÃO ---
+            long endNano = System.nanoTime();
+            long endCpuTime = (osBean != null) ? osBean.getProcessCpuTime() : 0;
+            long[] memInfoAfter = getSystemMemory();
+            long memAfter = memInfoAfter[0];
+            long memTotal = memInfoAfter[1];
 
-        // CÁLCULO DOS DELTAS (DIFERENÇAS)
-        long durationMs = (endNano - startNano) / 1_000_000;
+            // CÁLCULO DOS DELTAS (DIFERENÇAS)
+            long durationMs = (endNano - startNano) / 1_000_000;
 
-        long durationNano = endNano - startNano;
-        double cpuUsage = 0.0;
-        if (durationNano > 0) {
-            long cpuTimeUsed = endCpuTime - startCpuTime;
-            cpuUsage = (double) cpuTimeUsed / durationNano * 100.0 / Runtime.getRuntime().availableProcessors();
-        }
+            long durationNano = endNano - startNano;
+            double cpuUsage = 0.0;
+            if (durationNano > 0) {
+                long cpuTimeUsed = endCpuTime - startCpuTime;
+                cpuUsage = (double) cpuTimeUsed / durationNano * 100.0 / Runtime.getRuntime().availableProcessors();
+            }
 
-        long deltaMem = memAfter - memBefore; // Em Bytes
+            long deltaMem = memAfter - memBefore; // Em Bytes
 
-        double processCpuLoad = (osBean != null) ? osBean.getProcessCpuLoad() : 0.0;
-        if (processCpuLoad < 0) processCpuLoad = 0.0;
+            double processCpuLoad = (osBean != null) ? osBean.getProcessCpuLoad() : 0.0;
+            if (processCpuLoad < 0) processCpuLoad = 0.0;
 
-        double cpuTemp = getCpuTemperature();
+            double cpuTemp = getCpuTemperature();
 
-        Dados dados = new Dados(
-            String.valueOf(exchange.getRequest().getURI()),
-            durationMs + " ms",
-            String.format(Locale.US, "%.2f", processCpuLoad * 100),
-            String.format(Locale.US, "%.2f", cpuUsage),  /// CPU
-            String.format("%.1f°C", cpuTemp),
-            (memAfter / (1024 * 1024)) + "MB / " + (memTotal / (1024 * 1024)) + "MB",
-            deltaMem + " B",
-            LocalDateTime.now().toString()
-        );
-
-        return webClient
+            return new Dados(
+                String.valueOf(exchange.getRequest().getURI()),
+                durationMs + " ms",
+                String.format(Locale.US, "%.2f", processCpuLoad * 100),
+                String.format(Locale.US, "%.2f", cpuUsage),  /// CPU
+                String.format("%.1f°C", cpuTemp),
+                (memAfter / (1024 * 1024)) + "MB / " + (memTotal / (1024 * 1024)) + "MB",
+                deltaMem + " B",
+                LocalDateTime.now().toString()
+            );
+        })
+        .subscribeOn(Schedulers.boundedElastic())
+        .flatMap(dados -> webClient
             .post()
             .bodyValue(dados)
             .retrieve()
             .bodyToMono(Void.class)
             .doOnError(e -> logger.warn("Falha ao enviar métrica para {}: {}", dados.url(), e.getMessage()))
-            .onErrorResume(e -> Mono.empty());
+            .onErrorResume(e -> Mono.empty())
+        );
     }
 
     private double getCpuTemperature() {
