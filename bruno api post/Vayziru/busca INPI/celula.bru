@@ -1,0 +1,19 @@
+meta {
+  name: celula
+  type: http
+  seq: 3
+}
+
+get {
+  url: http://192.168.0.107:8000/api/busca/marca/nome?nome=dell
+  body: none
+  auth: inherit
+}
+
+params:query {
+  nome: dell
+}
+
+settings {
+  encodeUrl: true
+}
